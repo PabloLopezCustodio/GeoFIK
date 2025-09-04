@@ -3,7 +3,7 @@
 
 #include <array> 
 #include <vector>
-#include "Eigen/Dense"
+#include <eigen3/Eigen/Dense>
 using namespace std;
 
 constexpr double PI = 3.14159265359;
@@ -97,7 +97,8 @@ unsigned int franka_ik_swivel(const array<double, 3>& r,
                               const double theta,
                               array<array<double, 7>, 8>& qsols,
                               const double q1_sing = PI / 2,
-                              const unsigned int n_points = 600);
+                              const unsigned int n_points = 500,
+                              const unsigned int n_fine_search = 3);
 
 /**
  * @brief Calculates the swivel angle given the joint angles q.
@@ -194,6 +195,7 @@ unsigned int franka_J_ik_swivel(const array<double, 3>& r,
                                 const bool joint_angles = false,
                                 const char Jacobian_ee = 'E',
                                 const double q1_sing = PI / 2,
-                                const unsigned int n_points = 600);
+                                const unsigned int n_points = 600, 
+                                const unsigned int n_fine_search = 3);
 
 #endif
