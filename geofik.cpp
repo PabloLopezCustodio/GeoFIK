@@ -219,7 +219,7 @@ double signed_angle(const array<double, 3>& v1, const array<double, 3>& v2, cons
 }
 
 void check_limits(array<double, 7>& q, int n) {
-    for (int i; i < n; i++) {
+    for (int i=0; i < n; i++) {
         q[i] = q_mid[i] + atan2(sin(q[i] - q_mid[i]), cos(q[i] - q_mid[i]));
         if (q[i] < q_low[i] || q[i] > q_up[i]) q[i] = NAN;
     }
@@ -847,7 +847,7 @@ unsigned int franka_ik_q6(const array<double, 3>& r,
     array<double, 3> s2, s3, s4, s6, r4, r6;
     array<double, 6> sol1;
     array<double, 3> sol2;
-    for (int i; i < n_sols; i++) {
+    for (int i=0; i < n_sols; i++) {
         r6 = { r_PS_O[0] - lC * s5s[i][0], r_PS_O[1] - lC * s5s[i][1], r_PS_O[2] - lC * s5s[i][2] };
         tmp_v = { r_O7S_O[0] - r6[0], r_O7S_O[1] - r6[1], r_O7S_O[2] - r6[2] };
         Cross_(s7, tmp_v, s6);
@@ -1825,7 +1825,7 @@ unsigned int franka_J_ik_q6(const array<double, 3>& r,
     array<double, 3> s2, s3, s4, s6, r4, r6;
     array<double, 6> sol1;
     array<double, 3> sol2;
-    for (int i; i < n_sols; i++) {
+    for (int i=0; i < n_sols; i++) {
         r6 = { r_PS_O[0] - lC * s5s[i][0], r_PS_O[1] - lC * s5s[i][1], r_PS_O[2] - lC * s5s[i][2] };
         tmp_v = { r_O7S_O[0] - r6[0], r_O7S_O[1] - r6[1], r_O7S_O[2] - r6[2] };
         Cross_(s7, tmp_v, s6);
