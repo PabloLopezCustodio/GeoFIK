@@ -13,10 +13,14 @@ using namespace std::chrono;
 
 void print_results(const array<array<double, 7>, 8>& sols, const bool swivel = false, const double theta = 0.0);
 void print_results_J(const array<array<array<double, 6>, 7>, 8>& Jsols, const array<array<double, 7>, 8>& qsols, const bool joint_angles, const bool swivel = false, const double theta = 0.0);
+array<double,9> return_ROE_from_O_T_EE(const array<double, 16>& O_T_EE);
+array<double,3> return_r_from_O_T_EE(const array<double, 16>& O_T_EE);
+array<double,4> return_quat_from_O_T_EE(const array<double, 16>& O_T_EE);
 
 int main() {
 
     unsigned int nsols = 0; 
+    array<double, 16> O_T_EE; // Transformation matrix copied from echo_robot_state
     array<double, 9> ROE; // rotation matrix of frame E with respect to frame O
     array<double, 3> r; // position vector of frame E with respect to frame O
     double q7, q6, q4, theta; // free variables
@@ -28,6 +32,7 @@ int main() {
     auto duration = duration_cast<microseconds>(end - start);
 
     // TEST franka_ik_q7()
+/*
     cout << endl << "=======================================================" << endl;
     cout << "franka_ik_q7()" << endl;
     cout << "=======================================================" << endl;
@@ -47,7 +52,7 @@ int main() {
     end = high_resolution_clock::now();
     duration = duration_cast<microseconds>(end - start);
     cout << endl << "duration in second run:" << duration.count() << endl;
-
+*/
 
     // TEST franka_ik_q6()
     /*
@@ -182,29 +187,73 @@ int main() {
     */
 
     // TEST franka_J_ik_swivel()
-    /*
+//    /*
     cout << endl << "=======================================================" << endl;
     cout << "franka_J_ik_swivel()" << endl;
     cout << "=======================================================" << endl;
-    ROE = { -0.5878745000000002,-0.7990239702980599,-0.12635000000000007,-0.16720689999999983,0.2728366411870001,-0.9474186000000001,0.7914831,-0.5358366439507003,-0.293996 };
-    r = { -0.15116089,-0.397596,0.47386124 };
+    O_T_EE = {-0.28893,-0.774153,-0.563211,0,-0.956799,0.253474,0.142433,0,0.0324947,0.580032,-0.813945,0,0.408563,-0.0423964,0.37532,1};
+/*
+q_1 = 0.410566
+q_2 = -0.402605
+q_3 = -0.60232
+q_4 = -2.53534
+q_5 = 0.456634
+q_6 = 2.08885
+q_7 = 1.47693
+quat: [ -0.5638132, 0.7675202, 0.2353244, 0.1940358 ] // Copied from https://www.andre-gaschler.com/rotationconverter/
+*/
+    ROE = return_ROE_from_O_T_EE(O_T_EE);
+    r = return_r_from_O_T_EE(O_T_EE);
+    array<double, 4> quat = return_quat_from_O_T_EE(O_T_EE); // {x, y, z, w}
+    cout << "quat (x,y,z,w): " << quat[0] << " " << quat[1] << " " << quat[2] << " " << quat[3] << endl;
+    // Print rotation matrix
+/*
+    cout << "ROE:" << endl;
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            cout << ROE[i * 3 + j] << " ";
+        }
+        cout << endl;
+    }
+    cout << "r:" << endl;
+    for (int i = 0; i < 3; ++i) {
+        cout << r[i] << endl;
+    }
+*/    
     theta = -0.3490658503988659;
     joint_angles = true;
     start = high_resolution_clock::now();
-    nsols = franka_J_ik_swivel(r, ROE, theta, Jsols, qsols, joint_angles, 'F');
+    nsols = franka_J_ik_swivel(r, ROE, theta, Jsols, qsols, joint_angles, '8');
     end = high_resolution_clock::now();
     duration = duration_cast<microseconds>(end - start);
     print_results_J(Jsols, qsols, joint_angles);
     cout << "number of solutions found: " << nsols;
-    cout << endl << "duration:" << duration.count() << endl;
-    */
+    cout << endl << "duration:" << duration.count() << "us" << endl;
+//    */
 
     return 0;
 }
 
+// Functions to return rotation matrix and position from T
+array<double, 9> return_ROE_from_O_T_EE(const array<double, 16>& O_T_EE) {
+    array<double, 9> ROE = {
+        O_T_EE[0], O_T_EE[4], O_T_EE[8],
+        O_T_EE[1], O_T_EE[5], O_T_EE[9],
+        O_T_EE[2], O_T_EE[6], O_T_EE[10]};
+    return ROE;
+}
+array<double, 3> return_r_from_O_T_EE(const array<double, 16>& O_T_EE) {
+    array<double, 3> r = {O_T_EE[12], O_T_EE[13], O_T_EE[14]};
+    return r;
+}
+// O_T_EE is column-major (Franka convention), so it maps directly onto an Eigen matrix
+array<double, 4> return_quat_from_O_T_EE(const array<double, 16>& O_T_EE) {
+    Eigen::Map<const Eigen::Matrix4d> T(O_T_EE.data());
+    Eigen::Quaterniond quat(T.block<3, 3>(0, 0));
+    return {quat.x(), quat.y(), quat.z(), quat.w()};
+}
 
 // functions to print results
-
 void print_results(const array<array<double, 7>, 8>& sols, const bool swivel, const double theta) {
     cout << "SOLUTIONS ...................." << endl;
     Eigen::Matrix4d T;
@@ -252,7 +301,7 @@ void print_results_J(const array<array<array<double, 6>, 7>, 8>& Jsols, const ar
             sol_in_lims = true;
             cout << "joint angles" << endl;
             for (int j = 0; j < 7; j++) {
-                cout << "q_" << j + 1 << " = " << qsols[i][j] * 180 / PI << endl;
+                cout << "q_" << j + 1 << " = " << qsols[i][j] << endl;
                 if (isnan(qsols[i][j]))
                     sol_in_lims = false;
             }
