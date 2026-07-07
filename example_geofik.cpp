@@ -16,11 +16,12 @@ void print_results_J(const array<array<array<double, 6>, 7>, 8>& Jsols, const ar
 array<double,9> return_ROE_from_O_T_EE(const array<double, 16>& O_T_EE);
 array<double,3> return_r_from_O_T_EE(const array<double, 16>& O_T_EE);
 array<double,4> return_quat_from_O_T_EE(const array<double, 16>& O_T_EE);
+array<double,16> return_O_T_F_from_O_T_EE(const array<double, 16>& O_T_EE, const array<double, 16>& F_T_EE);
 
 int main() {
 
     unsigned int nsols = 0; 
-    array<double, 16> O_T_EE; // Transformation matrix copied from echo_robot_state
+    array<double, 16> O_T_EE, O_T_F, F_T_EE; // Transformation matrix copied from echo_robot_state
     array<double, 9> ROE; // rotation matrix of frame E with respect to frame O
     array<double, 3> r; // position vector of frame E with respect to frame O
     double q7, q6, q4, theta; // free variables
@@ -192,6 +193,10 @@ int main() {
     cout << "franka_J_ik_swivel()" << endl;
     cout << "=======================================================" << endl;
     O_T_EE = {-0.28893,-0.774153,-0.563211,0,-0.956799,0.253474,0.142433,0,0.0324947,0.580032,-0.813945,0,0.408563,-0.0423964,0.37532,1};
+    F_T_EE = {1,0,0,0,0,1,0,0,0,0,1,0,0,0,0.02,1};
+    O_T_F = return_O_T_F_from_O_T_EE(O_T_EE, F_T_EE);
+    ROE = return_ROE_from_O_T_EE(O_T_F);
+    r = return_r_from_O_T_EE(O_T_F);   
 /*
 q_1 = 0.410566
 q_2 = -0.402605
@@ -202,24 +207,6 @@ q_6 = 2.08885
 q_7 = 1.47693
 quat: [ -0.5638132, 0.7675202, 0.2353244, 0.1940358 ] // Copied from https://www.andre-gaschler.com/rotationconverter/
 */
-    ROE = return_ROE_from_O_T_EE(O_T_EE);
-    r = return_r_from_O_T_EE(O_T_EE);
-    array<double, 4> quat = return_quat_from_O_T_EE(O_T_EE); // {x, y, z, w}
-    cout << "quat (x,y,z,w): " << quat[0] << " " << quat[1] << " " << quat[2] << " " << quat[3] << endl;
-    // Print rotation matrix
-/*
-    cout << "ROE:" << endl;
-    for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-            cout << ROE[i * 3 + j] << " ";
-        }
-        cout << endl;
-    }
-    cout << "r:" << endl;
-    for (int i = 0; i < 3; ++i) {
-        cout << r[i] << endl;
-    }
-*/    
     theta = -0.3490658503988659;
     joint_angles = true;
     start = high_resolution_clock::now();
@@ -252,6 +239,16 @@ array<double, 4> return_quat_from_O_T_EE(const array<double, 16>& O_T_EE) {
     Eigen::Quaterniond quat(T.block<3, 3>(0, 0));
     return {quat.x(), quat.y(), quat.z(), quat.w()};
 }
+// Computes O_T_F (base -> flange), given O_T_EE and F_T_EE. All matrices are column-major (Franka convention).
+array<double, 16> return_O_T_F_from_O_T_EE(const array<double, 16>& O_T_EE, const array<double, 16>& F_T_EE) {
+    Eigen::Map<const Eigen::Matrix4d> T_O_EE(O_T_EE.data());
+    Eigen::Map<const Eigen::Matrix4d> T_F_EE(F_T_EE.data());
+    Eigen::Matrix4d T_O_F = T_O_EE * T_F_EE.inverse();
+    array<double, 16> O_T_F;
+    Eigen::Map<Eigen::Matrix4d>(O_T_F.data()) = T_O_F;
+    return O_T_F;
+}
+
 
 // functions to print results
 void print_results(const array<array<double, 7>, 8>& sols, const bool swivel, const double theta) {

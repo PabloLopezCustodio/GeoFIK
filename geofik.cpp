@@ -23,7 +23,8 @@
 #define d5 0.384
 #define a7 0.088
 // dE =  0.107 + 0.1034
-#define dE 0.2104
+// #define dE 0.2104
+#define dE 0.107
 // b1 = sqrt(d3*d3 + a4*a4)
 #define b1 0.3265918706887849
 // b2 = sqrt(d5*d5 + a5*a5)
@@ -415,7 +416,7 @@ unsigned int franka_ik_q7(const array<double, 3>& r,
     // si = s_i_O
     Eigen::Vector3d i_E_O(ROE[0], ROE[3], ROE[6]);
     array<double, 3> k_E_O = { ROE[2], ROE[5], ROE[8] };
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
+    R_axis_angle(k_E_O, -(q7)); //  - PI / 4
     Eigen::Vector3d i_6_O = tmp_R * i_E_O;
     array<double, 3> s6;
     Cross_(k_E_O, i_6_O, s6);
@@ -903,7 +904,7 @@ array<double, 2> theta_err_from_q7_explore_around_sing(double& q7m,
     double q7up = q7m + q7step / 2;
     double q7j = q7m - q7step / 2;
     while (q7j < q7up) {
-        R_axis_angle(k_E_O, -(q7j - PI / 4));
+        R_axis_angle(k_E_O, -(q7j)); //  - PI / 4 
         i_6_O = tmp_R * i_E_O;
         Cross_(k_E_O, i_6_O, s6);
         r6 = { r_O7S_O[0] - a7 * i_6_O[0], r_O7S_O[1] - a7 * i_6_O[1], r_O7S_O[2] - a7 * i_6_O[2] };
@@ -983,7 +984,7 @@ array<double, 2> theta_err_from_q7(double& q7,
     // Calculates the error in swivel angle given the necessary geometry, q7, and the desired swivel angle theta
     // NOTATION: u_O7S_O = r_O7S_O/norm(r_O7S_O), precalculated to improve speed
     array<double, 2> errs;
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
+    R_axis_angle(k_E_O, -(q7)); // - PI / 4 
     i_6_O = tmp_R * i_E_O;
     array<double, 3> s6;
     Cross_(k_E_O, i_6_O, s6);
@@ -1075,7 +1076,7 @@ void franka_ik_q7_one_sol(const double q7,
                           unsigned int ind,
                           const double q1_sing) {
     // returns the two solution related to one single branch of the IK with q7 as free variable. The results are stored in qsols[s*ind] and qsols[2*ind+1]
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
+    R_axis_angle(k_E_O, -(q7)); //  - PI / 4
     i_6_O = tmp_R * i_E_O;
     array<double, 3> s6 = Cross(k_E_O, i_6_O);
     array<double, 3> r6 = { r_O7S_O[0] - a7 * i_6_O[0], r_O7S_O[1] - a7 * i_6_O[1], r_O7S_O[2] - a7 * i_6_O[2] };
@@ -1365,7 +1366,7 @@ unsigned int franka_J_ik_q7(const array<double, 3>& r,
     // si - s_i_O,
     Eigen::Vector3d i_E_O(ROE[0], ROE[3], ROE[6]);
     array<double, 3> k_E_O = { ROE[2], ROE[5], ROE[8] };
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
+    R_axis_angle(k_E_O, -(q7)); // - PI / 4
     Eigen::Vector3d i_6_O = tmp_R * i_E_O;
     array<double, 3> s6;
     Cross_(k_E_O, i_6_O, s6);
@@ -1882,7 +1883,7 @@ void franka_J_ik_q7_one_sol(const double q7,
                             const unsigned int branch,
                             const double q1_sing) {
     // returns the two solution related to one single branch of the IK with q7 as free variable. The results are stored in Jsols[2*ind] and Jsols[2*ind+1]
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
+    R_axis_angle(k_E_O, -(q7)); // - PI / 4
     i_6_O = tmp_R * i_E_O;
     array<double, 3> s6 = Cross(k_E_O, i_6_O);
     array<double, 3> r6 = { r_O7S_O[0] - a7 * i_6_O[0], r_O7S_O[1] - a7 * i_6_O[1], r_O7S_O[2] - a7 * i_6_O[2] };
