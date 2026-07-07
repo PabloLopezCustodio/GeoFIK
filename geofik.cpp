@@ -24,7 +24,7 @@
 #define a7 0.088
 // dE =  0.107 + 0.1034
 // #define dE 0.2104
-#define dE 0.107
+#define dE 0.127
 // b1 = sqrt(d3*d3 + a4*a4)
 #define b1 0.3265918706887849
 // b2 = sqrt(d5*d5 + a5*a5)
