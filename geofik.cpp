@@ -15,6 +15,19 @@
 #include <iostream>
 #include <vector>
 
+// Define to opt into verbose error logs
+#ifdef GEOFIK_VERBOSE
+static std::ostream& geofik_log() { return std::cerr; }
+#else
+static std::ostream& geofik_log() {
+    static struct NullBuffer : std::streambuf {
+        int overflow(int c) override { return c; }
+    } buffer;
+    static std::ostream stream(&buffer);
+    return stream;
+}
+#endif
+
 
 #define d1 0.333
 #define d3 0.316
@@ -427,7 +440,7 @@ unsigned int franka_ik_q7(const array<double, 3>& r,
             tmp = 1;
         }
         else {
-            cout << "ERROR: unable to assembly kinematic chain";
+            geofik_log() << "ERROR: unable to assembly kinematic chain";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             }
@@ -548,7 +561,7 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
         if (lp2 * lp2 < SING_TOL * SING_TOL) 
             lp2 = 0;
         else {
-            cout << "\nERROR: unable to assembly kinematic chain\n";
+            geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
             for (int i = 0; i < 8; ++i)
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             return 0;
@@ -563,7 +576,7 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
         if ((tmp - 1) * (tmp - 1) < SING_TOL * SING_TOL)
             tmp = 1.0;
         else {
-            cout << "\nERROR: unable to assembly kinematic chain\n";
+            geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             }
@@ -574,7 +587,7 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
     if ((tmp - 1) * (tmp - 1) < SING_TOL*SING_TOL)
         tmp = 1.0;
     if (tmp > 1.0) {
-        cout << "\nERROR: unable to assembly kinematic chain\n";
+        geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
         for (int i = 0; i < 8; ++i) {
             fill(qsols[i].begin(), qsols[i].end(), NAN);
         }
@@ -667,7 +680,7 @@ unsigned int franka_ik_q6_parallel(const array<double, 3>& r_ES_O,
     if (tmp * tmp < SING_TOL*SING_TOL)
         tmp = 0;
     if (tmp < 0) {
-        cout << "ERROR: unable to assembly kinematic chain";
+        geofik_log() << "ERROR: unable to assembly kinematic chain";
         for (int i = 0; i < 8; ++i) {
             fill(qsols[i].begin(), qsols[i].end(), NAN);
         }
@@ -792,7 +805,7 @@ unsigned int franka_ik_q6(const array<double, 3>& r,
         if ((tmp - 1) * (tmp - 1) < SING_TOL * SING_TOL)
             tmp = 1.0;
         else {
-            cout << "ERROR: unable to assembly kinematic chain";
+            geofik_log() << "ERROR: unable to assembly kinematic chain";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             }
@@ -1166,7 +1179,7 @@ unsigned int franka_ik_swivel(const array<double, 3>& r,
     array<double, 3> r_O7S_O = { r[0] - dE * k_E_O[0], r[1] - dE * k_E_O[1], r[2] - d1 - dE * k_E_O[2] };
     double tmp = sqrt(r_O7S_O[1] * r_O7S_O[1] + r_O7S_O[0] * r_O7S_O[0]);
     if (tmp < SING_TOL) {
-        cout << "ERROR: n1_O is undefined";
+        geofik_log() << "ERROR: n1_O is undefined";
         for (int i = 0; i < 8; i++)
             fill(qsols[i].begin(), qsols[i].end(), NAN);
         return 0;
@@ -1300,7 +1313,7 @@ double franka_swivel(const array<double, 7>& q) {
     array<double, 3> s4 = { Ts[3](0,2), Ts[3](1,2), Ts[3](2,2) };
     double tmp = sqrt(r7[1] * r7[1] + r7[0] * r7[0]);
     if (tmp < SING_TOL) {
-        cout << "ERROR: n1_O is undefined";
+        geofik_log() << "ERROR: n1_O is undefined";
         return NAN;
     }
     array<double, 3> n1_O = { r7[1] / tmp, -r7[0] / tmp, 0 };
@@ -1377,7 +1390,7 @@ unsigned int franka_J_ik_q7(const array<double, 3>& r,
             tmp = 1;
         }
         else {
-            cout << "ERROR: unable to assembly kinematic chain";
+            geofik_log() << "ERROR: unable to assembly kinematic chain";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
                 for (auto& row : Jsols[i])
@@ -1510,7 +1523,7 @@ unsigned int franka_J_ik_q4(const array<double, 3>& r,
         if (lp2 * lp2 < SING_TOL * SING_TOL)
             lp2 = 0;
         else {
-            cout << "\nERROR: unable to assembly kinematic chain\n";
+            geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
             for (int i = 0; i < 8; ++i)
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             return 0;
@@ -1524,7 +1537,7 @@ unsigned int franka_J_ik_q4(const array<double, 3>& r,
         if ((tmp - 1) * (tmp - 1) < SING_TOL * SING_TOL)
             tmp = 1.0;
         else {
-            cout << "\nERROR: unable to assembly kinematic chain\n";
+            geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             }
@@ -1627,7 +1640,7 @@ unsigned int franka_J_ik_q6_parallel(const array<double, 3>& r,
     if (tmp * tmp < SING_TOL * SING_TOL)
         tmp = 0;
     if (tmp < 0) {
-        cout << "ERROR: unable to assembly kinematic chain";
+        geofik_log() << "ERROR: unable to assembly kinematic chain";
         for (int i = 0; i < 8; ++i) {
             fill(qsols[i].begin(), qsols[i].end(), NAN);
             for (auto& row : Jsols[i])
@@ -1773,7 +1786,7 @@ unsigned int franka_J_ik_q6(const array<double, 3>& r,
         if ((tmp - 1) * (tmp - 1) < SING_TOL * SING_TOL)
             tmp = 1.0;
         else {
-            cout << "ERROR: unable to assembly kinematic chain";
+            geofik_log() << "ERROR: unable to assembly kinematic chain";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
                 for (auto& row : Jsols[i])
@@ -1980,7 +1993,7 @@ unsigned int franka_J_ik_swivel(const array<double, 3>& r,
     array<double, 3> r_O7S_O = { r[0] - dE * k_E_O[0], r[1] - dE * k_E_O[1], r[2] - d1 - dE * k_E_O[2] };
     double tmp = sqrt(r_O7S_O[1] * r_O7S_O[1] + r_O7S_O[0] * r_O7S_O[0]);
     if (tmp < SING_TOL) {
-        cout << "ERROR: n1_O is undefined";
+        geofik_log() << "ERROR: n1_O is undefined";
         for (int i = 0; i < 8; ++i) {
             fill(qsols[i].begin(), qsols[i].end(), NAN);
             for (auto& row : Jsols[i])
