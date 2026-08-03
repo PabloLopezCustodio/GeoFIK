@@ -31,35 +31,36 @@ static std::ostream& geofik_log() {
 #endif
 
 
-#define d1 0.333
-#define d3 0.316
-#define a4 0.0825
-#define a5 0.0825
-#define d5 0.384
-#define a7 0.088
+constexpr double d1 = 0.333;
+constexpr double d3 = 0.316;
+constexpr double a4 = 0.0825;
+constexpr double a5 = 0.0825;
+constexpr double d5 = 0.384;
+constexpr double a7 = 0.088;
 // dE =  0.107 + 0.1034
-#define dE 0.2104
+constexpr double dE = 0.2104;
 // b1 = sqrt(d3*d3 + a4*a4)
-#define b1 0.3265918706887849
+constexpr double b1 = 0.3265918706887849;
 // b2 = sqrt(d5*d5 + a5*a5)
-#define b2 0.39276233271534583
+constexpr double b2 = 0.39276233271534583;
 // beta1 = arctan(a4/d3)
-#define beta1 0.25537561488738186
+constexpr double beta1 = 0.25537561488738186;
 // beta2 = arctan(a5/d5)
-#define beta2 0.21162680876562978
+constexpr double beta2 = 0.21162680876562978;
 
-// toletance for entering in singularity mode
-# define SING_TOL 1e-5
+// tolerance for entering in singularity mode
+constexpr double SING_TOL = 1e-5;
 
 // error threshold for swivel angle solver
-// # define ERR_THRESH 0.01 // this slightly smaller than 1deg
-# define ERR_THRESH 0.002 // this slightly smaller than (3deg)*(3deg)
-// max number of points in discretisation for swivel angle solver
-const unsigned int MAX_N_POINTS = 1000;
+// constexpr double ERR_THRESH = 0.01; // this slightly smaller than 1deg
+constexpr double ERR_THRESH = 0.002; // this slightly smaller than (3deg)*(3deg)
 
-const array<double, 7> q_low = { -2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973 };
-const array<double, 7> q_up = { 2.8973, 1.762, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973 };
-const array<double, 7> q_mid = { 0.0, 0.0, 0.0, -1.5708, 0.0, 1.8675, 0.0 };
+// max number of points in discretisation for swivel angle solver
+constexpr unsigned int MAX_N_POINTS = 1000;
+
+constexpr array<double, 7> q_low = { -2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973 };
+constexpr array<double, 7> q_up = { 2.8973, 1.762, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973 };
+constexpr array<double, 7> q_mid = { 0.0, 0.0, 0.0, -1.5708, 0.0, 1.8675, 0.0 };
 
 // Jacobian at home configuration (orientation only)
 const Eigen::Matrix<double, 3, 7> J0_S({ {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
