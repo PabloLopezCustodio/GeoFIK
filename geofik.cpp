@@ -15,6 +15,8 @@
 #include <iostream>
 #include <vector>
 
+using namespace std;
+
 // Define to opt into verbose error logs
 #ifdef GEOFIK_VERBOSE
 static std::ostream& geofik_log() { return std::cerr; }
