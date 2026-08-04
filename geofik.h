@@ -5,7 +5,7 @@
 #include <vector>
 #include <Eigen/Dense>
 
-constexpr double PI = 3.14159265359;
+constexpr double PI = 3.14159265358979323846;
 
 /**
  * @brief Computes the joint angles given a Jacobian and the rotation matrix of the ee frame.
