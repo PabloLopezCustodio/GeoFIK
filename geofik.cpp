@@ -51,35 +51,32 @@ const Eigen::Matrix<double, 3, 7> J0_S({ {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
                                         {0.0, 1.0, 0.0, -1.0, 0.0, -1.0, 0.0},
                                         {1.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0} });
 
-Eigen::Matrix3d tmp_R;
-Eigen::Matrix<double, 3, 7> tmp_J;
-Eigen::Matrix<double, 6, 7> tmp_J_6d;
-Eigen::Matrix<double, 3, 7> J_old;
-Eigen::Matrix<double, 3, 4> J_old_low;
-Eigen::Vector3d s;
-
-void R_axis_angle(const Eigen::Vector3d& s, double theta) {
+Eigen::Matrix3d R_axis_angle(const Eigen::Vector3d& s, double theta) {
     double x = s[0];
     double y = s[1];
     double z = s[2];
     double ct = cos(theta);
     double st = sin(theta);
     double one_minus_ct = 1 - ct;
-    tmp_R << ct + x * x * one_minus_ct, x* y* one_minus_ct - z * st, x* z* one_minus_ct + y * st,
+    Eigen::Matrix3d R;
+    R << ct + x * x * one_minus_ct, x* y* one_minus_ct - z * st, x* z* one_minus_ct + y * st,
         y* x* one_minus_ct + z * st, ct + y * y * one_minus_ct, y* z* one_minus_ct - x * st,
         z* x* one_minus_ct - y * st, z* y* one_minus_ct + x * st, ct + z * z * one_minus_ct;
+    return R;
 }
 
-void R_axis_angle(const array<double, 3>& s, double theta) {
+Eigen::Matrix3d R_axis_angle(const array<double, 3>& s, double theta) {
     double x = s[0];
     double y = s[1];
     double z = s[2];
     double ct = cos(theta);
     double st = sin(theta);
     double one_minus_ct = 1 - ct;
-    tmp_R << ct + x * x * one_minus_ct, x* y* one_minus_ct - z * st, x* z* one_minus_ct + y * st,
+    Eigen::Matrix3d R;
+    R << ct + x * x * one_minus_ct, x* y* one_minus_ct - z * st, x* z* one_minus_ct + y * st,
         y* x* one_minus_ct + z * st, ct + y * y * one_minus_ct, y* z* one_minus_ct - x * st,
         z* x* one_minus_ct - y * st, z* y* one_minus_ct + x * st, ct + z * z * one_minus_ct;
+    return R;
 }
 
 array<double, 3> Cross(const Eigen::Vector3d& u, const Eigen::Vector3d& v) {
@@ -134,10 +131,12 @@ double Norm(const array<double, 3>& u) {
     return sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
 }
 
-void J_dir(const array<double, 3>& s2, const array<double, 3>& s3, const array<double, 3>& s4, const array<double, 3>& s5, const array<double, 3>& s6, const array<double, 3>& s7) {
-    tmp_J << 0, s2[0], s3[0], s4[0], s5[0], s6[0], s7[0],
+Eigen::Matrix<double, 3, 7> J_dir(const array<double, 3>& s2, const array<double, 3>& s3, const array<double, 3>& s4, const array<double, 3>& s5, const array<double, 3>& s6, const array<double, 3>& s7) {
+    Eigen::Matrix<double, 3, 7> J;
+    J << 0, s2[0], s3[0], s4[0], s5[0], s6[0], s7[0],
         0, s2[1], s3[1], s4[1], s5[1], s6[1], s7[1],
         1, s2[2], s3[2], s4[2], s5[2], s6[2], s7[2];
+    return J;
 }
 
 void save_J_sol(const array<double, 3>& s2,
@@ -229,13 +228,13 @@ void check_limits(array<double, 7>& q, int n) {
 array<double, 6> q_from_J(const Eigen::Matrix<double, 3, 7>& J) {
     const int dof = 7;
     array<double, dof - 1> q;
-    J_old = J0_S; // [3,dof]
+    Eigen::Matrix<double, 3, 7> J_old = J0_S; // [3,dof]
     for (int i = 0; i < dof - 1; i++) {
-        s = J.col(i);
+        Eigen::Vector3d s = J.col(i);
         q[i] = signed_angle(J_old.col(i + 1), J.col(i + 1), s);
         if (i == dof - 2) break;
-        R_axis_angle(s, q[i]);
-        J_old.block(0, i + 1, 3, dof - (i + 1)) = tmp_R * J_old.block(0, i + 1, 3, dof - (i + 1));
+        Eigen::Matrix3d R_rot = R_axis_angle(s, q[i]);
+        J_old.block(0, i + 1, 3, dof - (i + 1)) = R_rot * J_old.block(0, i + 1, 3, dof - (i + 1));
     }
     return q;
 }
@@ -244,13 +243,13 @@ array<double, 6> q_from_J(const Eigen::Matrix<double, 3, 7>& J) {
 array<double, 3> q_from_low_J(const Eigen::Matrix<double, 3, 7>& J) {
     const int dof = 4;
     array<double, dof - 1> q;
-    J_old_low = J0_S.block(0, 0, 3, dof); // [3,dof]
+    Eigen::Matrix<double, 3, 4> J_old_low = J0_S.block(0, 0, 3, dof); // [3,dof]
     for (int i = 0; i < dof - 1; i++) {
-        s = J.col(i);
+        Eigen::Vector3d s = J.col(i);
         q[i] = signed_angle(J_old_low.col(i + 1), J.col(i + 1), s);
         if (i == dof - 2) break;
-        R_axis_angle(s, q[i]);
-        J_old_low.block(0, i + 1, 3, dof - (i + 1)) = tmp_R * J_old_low.block(0, i + 1, 3, dof - (i + 1));
+        Eigen::Matrix3d R_rot = R_axis_angle(s, q[i]);
+        J_old_low.block(0, i + 1, 3, dof - (i + 1)) = R_rot * J_old_low.block(0, i + 1, 3, dof - (i + 1));
     }
     return q;
 }
@@ -272,13 +271,13 @@ array<double, 7> J_to_q(const array<array<double, 6>, 7>& J, const array<array<d
     Cross_(s6, s7, i7);
     ie = { R[0][0], R[1][0], R[2][0] };
     q[6] = signed_angle(i7, ie, s7) + (ee == 'E' ? -PI / 4 : 0);
-    J_old = J0_S; // [3,dof]
+    Eigen::Matrix<double, 3, 7> J_old = J0_S; // [3,dof]
     for (int i = 0; i < dof - 1; i++) {
-        s = Jrot.col(i);
+        Eigen::Vector3d s = Jrot.col(i);
         q[i] = signed_angle(J_old.col(i + 1), Jrot.col(i + 1), s);
         if (i == dof - 2) break;
-        R_axis_angle(s, q[i]);
-        J_old.block(0, i + 1, 3, dof - (i + 1)) = tmp_R * J_old.block(0, i + 1, 3, dof - (i + 1));
+        Eigen::Matrix3d R_rot = R_axis_angle(s, q[i]);
+        J_old.block(0, i + 1, 3, dof - (i + 1)) = R_rot * J_old.block(0, i + 1, 3, dof - (i + 1));
     }
     return q;
 }
@@ -290,10 +289,10 @@ void column_1s_times_vec(const array<double, 9>& R, const array<double, 3>& v, a
 }
 
 void rotate_by_axis_angle(const array<double, 3>& s, const double theta, const array<double, 3>& v, array<double, 3>& res) {
-    R_axis_angle(s, theta);
-    res[0] = tmp_R(0, 0) * v[0] + tmp_R(0, 1) * v[1] + tmp_R(0, 2) * v[2];
-    res[1] = tmp_R(1, 0) * v[0] + tmp_R(1, 1) * v[1] + tmp_R(1, 2) * v[2];
-    res[2] = tmp_R(2, 0) * v[0] + tmp_R(2, 1) * v[1] + tmp_R(2, 2) * v[2];
+    Eigen::Matrix3d R_rot = R_axis_angle(s, theta);
+    res[0] = R_rot(0, 0) * v[0] + R_rot(0, 1) * v[1] + R_rot(0, 2) * v[2];
+    res[1] = R_rot(1, 0) * v[0] + R_rot(1, 1) * v[1] + R_rot(1, 2) * v[2];
+    res[2] = R_rot(2, 0) * v[0] + R_rot(2, 1) * v[1] + R_rot(2, 2) * v[2];
 }
 
 Eigen::Matrix4d T_rpy(const double r, const double p, const double y, const double px, const double py, const double pz) {
@@ -415,8 +414,8 @@ unsigned int franka_ik_q7(const array<double, 3>& r,
     // si = s_i_O
     Eigen::Vector3d i_E_O(ROE[0], ROE[3], ROE[6]);
     array<double, 3> k_E_O = { ROE[2], ROE[5], ROE[8] };
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
-    Eigen::Vector3d i_6_O = tmp_R * i_E_O;
+    Eigen::Matrix3d R_tmp = R_axis_angle(k_E_O, -(q7 - PI / 4));
+    Eigen::Vector3d i_6_O = R_tmp * i_E_O;
     array<double, 3> s6;
     Cross_(k_E_O, i_6_O, s6);
     array<double, 3> r6 = { r[0] - dE * k_E_O[0] - a7 * i_6_O[0], r[1] - dE * k_E_O[1] - a7 * i_6_O[1], r[2] - d1 - dE * k_E_O[2] - a7 * i_6_O[2] };
@@ -486,10 +485,10 @@ unsigned int franka_ik_q7(const array<double, 3>& r,
         s4 = { s4[0] / tmp, s4[1] / tmp, s4[2] / tmp };
         Cross_(s5, s4, r4);
         r4 = { r6[0] - d5 * s5[0] + a5 * r4[0], r6[1] - d5 * s5[1] + a5 * r4[1], r6[2] - d5 * s5[2] + a5 * r4[2] };
-        R_axis_angle(s4, beta1);
-        s3 = { tmp_R(0,0) * r4[0] + tmp_R(0,1) * r4[1] + tmp_R(0,2) * r4[2],
-              tmp_R(1,0) * r4[0] + tmp_R(1,1) * r4[1] + tmp_R(1,2) * r4[2],
-              tmp_R(2,0) * r4[0] + tmp_R(2,1) * r4[1] + tmp_R(2,2) * r4[2] };
+        Eigen::Matrix3d R_tmp = R_axis_angle(s4, beta1);
+        s3 = { R_tmp(0,0) * r4[0] + R_tmp(0,1) * r4[1] + R_tmp(0,2) * r4[2],
+              R_tmp(1,0) * r4[0] + R_tmp(1,1) * r4[1] + R_tmp(1,2) * r4[2],
+              R_tmp(2,0) * r4[0] + R_tmp(2,1) * r4[1] + R_tmp(2,2) * r4[2] };
         tmp = Norm(s3);
         s3 = { s3[0] / tmp, s3[1] / tmp, s3[2] / tmp };
         tmp = s3[1] * s3[1] + s3[0] * s3[0];
@@ -499,7 +498,7 @@ unsigned int franka_ik_q7(const array<double, 3>& r,
         else {
             s2 = { sin(q1_sing), cos(q1_sing), 0 };
         }
-        J_dir(s2, s3, s4, s5, s6, k_E_O);
+        Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5, s6, k_E_O);
         sol1 = q_from_J(tmp_J);
         tmp_J.col(1) = -1 * tmp_J.col(1);
         sol2 = q_from_low_J(tmp_J);
@@ -617,10 +616,10 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
             s4 = { s4[0] / tmp, s4[1] / tmp, s4[2] / tmp };
             Cross_(s5, s4, r4);
             r4 = { r6[0] - d5 * s5[0] + a5 * r4[0], r6[1] - d5 * s5[1] + a5 * r4[1], r6[2] - d5 * s5[2] + a5 * r4[2] };
-            R_axis_angle(s4, beta1);
-            s3 = { tmp_R(0,0) * r4[0] + tmp_R(0,1) * r4[1] + tmp_R(0,2) * r4[2],
-                  tmp_R(1,0) * r4[0] + tmp_R(1,1) * r4[1] + tmp_R(1,2) * r4[2],
-                  tmp_R(2,0) * r4[0] + tmp_R(2,1) * r4[1] + tmp_R(2,2) * r4[2] };
+            Eigen::Matrix3d R_tmp = R_axis_angle(s4, beta1);
+        s3 = { R_tmp(0,0) * r4[0] + R_tmp(0,1) * r4[1] + R_tmp(0,2) * r4[2],
+                  R_tmp(1,0) * r4[0] + R_tmp(1,1) * r4[1] + R_tmp(1,2) * r4[2],
+                  R_tmp(2,0) * r4[0] + R_tmp(2,1) * r4[1] + R_tmp(2,2) * r4[2] };
             tmp = Norm(s3);
             s3 = { s3[0] / tmp, s3[1] / tmp, s3[2] / tmp };
             tmp = s3[1] * s3[1] + s3[0] * s3[0];
@@ -628,8 +627,8 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
                 s2 = { -s3[1] / sqrt(tmp), s3[0] / sqrt(tmp), 0 };
             else
                 s2 = { sin(q1_sing), cos(q1_sing), 0 };
-            J_dir(s2, s3, s4, s5, s6, array<double, 3>{ROE[2], ROE[5], ROE[8]});
-            sol1 = q_from_J(tmp_J);
+            Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5, s6, array<double, 3>{ROE[2], ROE[5], ROE[8]});
+        sol1 = q_from_J(tmp_J);
             tmp_J.col(1) = -1 * tmp_J.col(1);
             sol2 = q_from_low_J(tmp_J);
             qsols[2 * ind] = { sol1[0], sol1[1], sol1[2], sol1[3], sol1[4], sol1[5], q7 };
@@ -730,8 +729,8 @@ unsigned int franka_ik_q6_parallel(const array<double, 3>& r_ES_O,
                 s2 = { -s3[1] / sqrt(tmp), s3[0] / sqrt(tmp), 0 };
             else
                 s2 = { sin(q1_sing), cos(q1_sing), 0 };
-            J_dir(s2, s3, s4, s5, s6, s7);
-            sol1 = q_from_J(tmp_J);
+            Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5, s6, s7);
+        sol1 = q_from_J(tmp_J);
             tmp_J.col(1) = -1 * tmp_J.col(1);
             sol2 = q_from_low_J(tmp_J);
             qsols[2 * ind] = { sol1[0], sol1[1], sol1[2], sol1[3], sol1[4], sol1[5], q7 };
@@ -866,7 +865,7 @@ unsigned int franka_ik_q6(const array<double, 3>& r,
             s2 = { -s3[1] / sqrt(tmp), s3[0] / sqrt(tmp), 0 };
         else
             s2 = { sin(q1_sing), cos(q1_sing), 0 };
-        J_dir(s2, s3, s4, s5s[i], s6, s7);
+        Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5s[i], s6, s7);
         sol1 = q_from_J(tmp_J);
         tmp_J.col(1) = -1 * tmp_J.col(1);
         sol2 = q_from_low_J(tmp_J);
@@ -903,8 +902,8 @@ array<double, 2> theta_err_from_q7_explore_around_sing(double& q7m,
     double q7up = q7m + q7step / 2;
     double q7j = q7m - q7step / 2;
     while (q7j < q7up) {
-        R_axis_angle(k_E_O, -(q7j - PI / 4));
-        i_6_O = tmp_R * i_E_O;
+        Eigen::Matrix3d R_tmp = R_axis_angle(k_E_O, -(q7j - PI / 4));
+    i_6_O = R_tmp * i_E_O;
         Cross_(k_E_O, i_6_O, s6);
         r6 = { r_O7S_O[0] - a7 * i_6_O[0], r_O7S_O[1] - a7 * i_6_O[1], r_O7S_O[2] - a7 * i_6_O[2] };
         l = Norm(r6);
@@ -983,8 +982,8 @@ array<double, 2> theta_err_from_q7(double& q7,
     // Calculates the error in swivel angle given the necessary geometry, q7, and the desired swivel angle theta
     // NOTATION: u_O7S_O = r_O7S_O/norm(r_O7S_O), precalculated to improve speed
     array<double, 2> errs;
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
-    i_6_O = tmp_R * i_E_O;
+    Eigen::Matrix3d R_tmp = R_axis_angle(k_E_O, -(q7 - PI / 4));
+    i_6_O = R_tmp * i_E_O;
     array<double, 3> s6;
     Cross_(k_E_O, i_6_O, s6);
     //r6 = r_O7S_O - a7 * i_6_O
@@ -1075,8 +1074,8 @@ void franka_ik_q7_one_sol(const double q7,
                           unsigned int ind,
                           const double q1_sing) {
     // returns the two solution related to one single branch of the IK with q7 as free variable. The results are stored in qsols[s*ind] and qsols[2*ind+1]
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
-    i_6_O = tmp_R * i_E_O;
+    Eigen::Matrix3d R_tmp = R_axis_angle(k_E_O, -(q7 - PI / 4));
+    i_6_O = R_tmp * i_E_O;
     array<double, 3> s6 = Cross(k_E_O, i_6_O);
     array<double, 3> r6 = { r_O7S_O[0] - a7 * i_6_O[0], r_O7S_O[1] - a7 * i_6_O[1], r_O7S_O[2] - a7 * i_6_O[2] };
     double l = Norm(r6);
@@ -1123,10 +1122,10 @@ void franka_ik_q7_one_sol(const double q7,
     r4 = { r6[0] - d5 * s5[0] + a5 * r4[0],
           r6[1] - d5 * s5[1] + a5 * r4[1],
           r6[2] - d5 * s5[2] + a5 * r4[2] };
-    R_axis_angle(s4, beta1);
-    s3 = { tmp_R(0,0) * r4[0] + tmp_R(0,1) * r4[1] + tmp_R(0,2) * r4[2],
-          tmp_R(1,0) * r4[0] + tmp_R(1,1) * r4[1] + tmp_R(1,2) * r4[2],
-          tmp_R(2,0) * r4[0] + tmp_R(2,1) * r4[1] + tmp_R(2,2) * r4[2] };
+    Eigen::Matrix3d R_tmp_beta = R_axis_angle(s4, beta1);
+        s3 = { R_tmp_beta(0,0) * r4[0] + R_tmp_beta(0,1) * r4[1] + R_tmp_beta(0,2) * r4[2],
+          R_tmp_beta(1,0) * r4[0] + R_tmp_beta(1,1) * r4[1] + R_tmp_beta(1,2) * r4[2],
+          R_tmp_beta(2,0) * r4[0] + R_tmp_beta(2,1) * r4[1] + R_tmp_beta(2,2) * r4[2] };
     tmp = Norm(s3);
     s3 = { s3[0] / tmp, s3[1] / tmp, s3[2] / tmp };
     tmp = s3[1] * s3[1] + s3[0] * s3[0];
@@ -1134,8 +1133,8 @@ void franka_ik_q7_one_sol(const double q7,
         s2 = { -s3[1] / sqrt(tmp), s3[0] / sqrt(tmp), 0 };
     else
         s2 = { sin(q1_sing), cos(q1_sing), 0 };
-    J_dir(s2, s3, s4, s5, s6, k_E_O);
-    sol1 = q_from_J(tmp_J);
+    Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5, s6, k_E_O);
+        sol1 = q_from_J(tmp_J);
     tmp_J.col(1) = -1 * tmp_J.col(1);
     sol2 = q_from_low_J(tmp_J);
     qsols[2 * ind] = { sol1[0], sol1[1], sol1[2], sol1[3], sol1[4], sol1[5], q7 };
@@ -1365,8 +1364,8 @@ unsigned int franka_J_ik_q7(const array<double, 3>& r,
     // si - s_i_O,
     Eigen::Vector3d i_E_O(ROE[0], ROE[3], ROE[6]);
     array<double, 3> k_E_O = { ROE[2], ROE[5], ROE[8] };
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
-    Eigen::Vector3d i_6_O = tmp_R * i_E_O;
+    Eigen::Matrix3d R_tmp = R_axis_angle(k_E_O, -(q7 - PI / 4));
+    Eigen::Vector3d i_6_O = R_tmp * i_E_O;
     array<double, 3> s6;
     Cross_(k_E_O, i_6_O, s6);
     array<double, 3> r6 = { r[0] - dE * k_E_O[0] - a7 * i_6_O[0], r[1] - dE * k_E_O[1] - a7 * i_6_O[1], r[2] - d1 - dE * k_E_O[2] - a7 * i_6_O[2] };
@@ -1436,10 +1435,10 @@ unsigned int franka_J_ik_q7(const array<double, 3>& r,
         Cross_(s5, s4, r4);
         r4 = { r6[0] - d5 * s5[0] + a5 * r4[0], r6[1] - d5 * s5[1] + a5 * r4[1], r6[2] - d5 * s5[2] + a5 * r4[2] };
         //s3 = R_axis_angle(s4, beta1) * r4;
-        R_axis_angle(s4, beta1);
-        s3 = { tmp_R(0,0) * r4[0] + tmp_R(0,1) * r4[1] + tmp_R(0,2) * r4[2],
-              tmp_R(1,0) * r4[0] + tmp_R(1,1) * r4[1] + tmp_R(1,2) * r4[2],
-              tmp_R(2,0) * r4[0] + tmp_R(2,1) * r4[1] + tmp_R(2,2) * r4[2] };
+        Eigen::Matrix3d R_tmp = R_axis_angle(s4, beta1);
+        s3 = { R_tmp(0,0) * r4[0] + R_tmp(0,1) * r4[1] + R_tmp(0,2) * r4[2],
+              R_tmp(1,0) * r4[0] + R_tmp(1,1) * r4[1] + R_tmp(1,2) * r4[2],
+              R_tmp(2,0) * r4[0] + R_tmp(2,1) * r4[1] + R_tmp(2,2) * r4[2] };
         tmp = Norm(s3);
         s3 = { s3[0] / tmp, s3[1] / tmp, s3[2] / tmp };
         tmp = s3[1] * s3[1] + s3[0] * s3[0];
@@ -1451,8 +1450,8 @@ unsigned int franka_J_ik_q7(const array<double, 3>& r,
         }
         save_J_sol(s2, s3, s4, s5, s6, k_E_O, r4, r6, r, Jsols, i, Jacobian_ee);
         if (joint_angles) {
-            J_dir(s2, s3, s4, s5, s6, k_E_O);
-            sol1 = q_from_J(tmp_J);
+            Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5, s6, k_E_O);
+        sol1 = q_from_J(tmp_J);
             tmp_J.col(1) = -1 * tmp_J.col(1);
             sol2 = q_from_low_J(tmp_J);
             qsols[2 * i] = { sol1[0], sol1[1], sol1[2], sol1[3], sol1[4], sol1[5], q7 };
@@ -1568,10 +1567,10 @@ unsigned int franka_J_ik_q4(const array<double, 3>& r,
             s4 = { s4[0] / tmp, s4[1] / tmp, s4[2] / tmp };
             Cross_(s5, s4, r4);
             r4 = { r6[0] - d5 * s5[0] + a5 * r4[0], r6[1] - d5 * s5[1] + a5 * r4[1], r6[2] - d5 * s5[2] + a5 * r4[2] };
-            R_axis_angle(s4, beta1);
-            s3 = { tmp_R(0,0) * r4[0] + tmp_R(0,1) * r4[1] + tmp_R(0,2) * r4[2],
-                  tmp_R(1,0) * r4[0] + tmp_R(1,1) * r4[1] + tmp_R(1,2) * r4[2],
-                  tmp_R(2,0) * r4[0] + tmp_R(2,1) * r4[1] + tmp_R(2,2) * r4[2] };
+            Eigen::Matrix3d R_tmp = R_axis_angle(s4, beta1);
+        s3 = { R_tmp(0,0) * r4[0] + R_tmp(0,1) * r4[1] + R_tmp(0,2) * r4[2],
+                  R_tmp(1,0) * r4[0] + R_tmp(1,1) * r4[1] + R_tmp(1,2) * r4[2],
+                  R_tmp(2,0) * r4[0] + R_tmp(2,1) * r4[1] + R_tmp(2,2) * r4[2] };
             tmp = Norm(s3);
             s3 = { s3[0] / tmp, s3[1] / tmp, s3[2] / tmp };
             tmp = s3[1] * s3[1] + s3[0] * s3[0];
@@ -1581,8 +1580,8 @@ unsigned int franka_J_ik_q4(const array<double, 3>& r,
                 s2 = { sin(q1_sing), cos(q1_sing), 0 };
             save_J_sol(s2, s3, s4, s5, s6, s7, r4, r6, r, Jsols, ind, Jacobian_ee);
             if (joint_angles) {
-                J_dir(s2, s3, s4, s5, s6, s7);
-                sol1 = q_from_J(tmp_J);
+                Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5, s6, s7);
+        sol1 = q_from_J(tmp_J);
                 tmp_J.col(1) = -1 * tmp_J.col(1);
                 sol2 = q_from_low_J(tmp_J);
                 qsols[2 * ind] = { sol1[0], sol1[1], sol1[2], sol1[3], sol1[4], sol1[5], q7 };
@@ -1702,8 +1701,8 @@ unsigned int franka_J_ik_q6_parallel(const array<double, 3>& r,
                 s2 = { sin(q1_sing), cos(q1_sing), 0 };
             save_J_sol(s2, s3, s4, s5, s6, s7, r4, r6, r, Jsols, ind, Jacobian_ee);
             if (joint_angles) {
-                J_dir(s2, s3, s4, s5, s6, s7);
-                sol1 = q_from_J(tmp_J);
+                Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5, s6, s7);
+        sol1 = q_from_J(tmp_J);
                 tmp_J.col(1) = -1 * tmp_J.col(1);
                 sol2 = q_from_low_J(tmp_J);
                 qsols[2 * ind] = { sol1[0], sol1[1], sol1[2], sol1[3], sol1[4], sol1[5], q7 };
@@ -1846,8 +1845,8 @@ unsigned int franka_J_ik_q6(const array<double, 3>& r,
             s2 = { sin(q1_sing), cos(q1_sing), 0 };
         save_J_sol(s2, s3, s4, s5s[i], s6, s7, r4, r6, r, Jsols, i, Jacobian_ee);
         if (joint_angles) {
-            J_dir(s2, s3, s4, s5s[i], s6, s7);
-            sol1 = q_from_J(tmp_J);
+            Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5s[i], s6, s7);
+        sol1 = q_from_J(tmp_J);
             tmp_J.col(1) = -1 * tmp_J.col(1);
             sol2 = q_from_low_J(tmp_J);
             qsols[2 * i] = { sol1[0], sol1[1], sol1[2], sol1[3], sol1[4], sol1[5], q7s[i] };
@@ -1882,8 +1881,8 @@ void franka_J_ik_q7_one_sol(const double q7,
                             const unsigned int branch,
                             const double q1_sing) {
     // returns the two solution related to one single branch of the IK with q7 as free variable. The results are stored in Jsols[2*ind] and Jsols[2*ind+1]
-    R_axis_angle(k_E_O, -(q7 - PI / 4));
-    i_6_O = tmp_R * i_E_O;
+    Eigen::Matrix3d R_tmp = R_axis_angle(k_E_O, -(q7 - PI / 4));
+    i_6_O = R_tmp * i_E_O;
     array<double, 3> s6 = Cross(k_E_O, i_6_O);
     array<double, 3> r6 = { r_O7S_O[0] - a7 * i_6_O[0], r_O7S_O[1] - a7 * i_6_O[1], r_O7S_O[2] - a7 * i_6_O[2] };
     double l = Norm(r6);
@@ -1927,10 +1926,10 @@ void franka_J_ik_q7_one_sol(const double q7,
     r4 = { r6[0] - d5 * s5[0] + a5 * r4[0],
           r6[1] - d5 * s5[1] + a5 * r4[1],
           r6[2] - d5 * s5[2] + a5 * r4[2] };
-    R_axis_angle(s4, beta1);
-    s3 = { tmp_R(0,0) * r4[0] + tmp_R(0,1) * r4[1] + tmp_R(0,2) * r4[2],
-          tmp_R(1,0) * r4[0] + tmp_R(1,1) * r4[1] + tmp_R(1,2) * r4[2],
-          tmp_R(2,0) * r4[0] + tmp_R(2,1) * r4[1] + tmp_R(2,2) * r4[2] };
+    Eigen::Matrix3d R_tmp_beta = R_axis_angle(s4, beta1);
+        s3 = { R_tmp_beta(0,0) * r4[0] + R_tmp_beta(0,1) * r4[1] + R_tmp_beta(0,2) * r4[2],
+          R_tmp_beta(1,0) * r4[0] + R_tmp_beta(1,1) * r4[1] + R_tmp_beta(1,2) * r4[2],
+          R_tmp_beta(2,0) * r4[0] + R_tmp_beta(2,1) * r4[1] + R_tmp_beta(2,2) * r4[2] };
     tmp = Norm(s3);
     s3 = { s3[0] / tmp, s3[1] / tmp, s3[2] / tmp };
     tmp = s3[1] * s3[1] + s3[0] * s3[0];
@@ -1940,7 +1939,7 @@ void franka_J_ik_q7_one_sol(const double q7,
         s2 = { sin(q1_sing), cos(q1_sing), 0 };
     save_J_sol(s2, s3, s4, s5, s6, k_E_O, r4, r6, r, Jsols, ind, Jacobian_ee);
     if (joint_angles) {
-        J_dir(s2, s3, s4, s5, s6, k_E_O);
+        Eigen::Matrix<double, 3, 7> tmp_J = J_dir(s2, s3, s4, s5, s6, k_E_O);
         sol1 = q_from_J(tmp_J);
         tmp_J.col(1) = -1 * tmp_J.col(1);
         sol2 = q_from_low_J(tmp_J);
