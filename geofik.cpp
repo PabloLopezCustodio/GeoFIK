@@ -15,50 +15,66 @@
 #include <iostream>
 #include <vector>
 
+using namespace std;
 
-#define d1 0.333
-#define d3 0.316
-#define a4 0.0825
-#define a5 0.0825
-#define d5 0.384
-#define a7 0.088
+// Define to opt into verbose error logs
+#ifdef GEOFIK_VERBOSE
+static std::ostream& geofik_log() { return std::cerr; }
+#else
+static std::ostream& geofik_log() {
+    static struct NullBuffer : std::streambuf {
+        int overflow(int c) override { return c; }
+    } buffer;
+    static std::ostream stream(&buffer);
+    return stream;
+}
+#endif
+
+
+constexpr double d1 = 0.333;
+constexpr double d3 = 0.316;
+constexpr double a4 = 0.0825;
+constexpr double a5 = 0.0825;
+constexpr double d5 = 0.384;
+constexpr double a7 = 0.088;
 // dE =  0.107 + 0.1034
-#define dE 0.2104
+constexpr double dE = 0.2104;
 // b1 = sqrt(d3*d3 + a4*a4)
-#define b1 0.3265918706887849
+constexpr double b1 = 0.3265918706887849;
 // b2 = sqrt(d5*d5 + a5*a5)
-#define b2 0.39276233271534583
+constexpr double b2 = 0.39276233271534583;
 // beta1 = arctan(a4/d3)
-#define beta1 0.25537561488738186
+constexpr double beta1 = 0.25537561488738186;
 // beta2 = arctan(a5/d5)
-#define beta2 0.21162680876562978
+constexpr double beta2 = 0.21162680876562978;
 
-// toletance for entering in singularity mode
-# define SING_TOL 1e-5
+// tolerance for entering in singularity mode
+constexpr double SING_TOL = 1e-5;
 
 // error threshold for swivel angle solver
-// # define ERR_THRESH 0.01 // this slightly smaller than 1deg
-# define ERR_THRESH 0.002 // this slightly smaller than (3deg)*(3deg)
-// max number of points in discretisation for swivel angle solver
-const unsigned int MAX_N_POINTS = 1000;
+// constexpr double ERR_THRESH = 0.01; // this slightly smaller than 1deg
+constexpr double ERR_THRESH = 0.002; // this slightly smaller than (3deg)*(3deg)
 
-const array<double, 7> q_low = { -2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973 };
-const array<double, 7> q_up = { 2.8973, 1.762, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973 };
-const array<double, 7> q_mid = { 0.0, 0.0, 0.0, -1.5708, 0.0, 1.8675, 0.0 };
+// max number of points in discretisation for swivel angle solver
+constexpr unsigned int MAX_N_POINTS = 1000;
+
+constexpr array<double, 7> q_low = { -2.8973, -1.7628, -2.8973, -3.0718, -2.8973, -0.0175, -2.8973 };
+constexpr array<double, 7> q_up = { 2.8973, 1.762, 2.8973, -0.0698, 2.8973, 3.7525, 2.8973 };
+constexpr array<double, 7> q_mid = { 0.0, 0.0, 0.0, -1.5708, 0.0, 1.8675, 0.0 };
 
 // Jacobian at home configuration (orientation only)
-const Eigen::Matrix<double, 3, 7> J0_S({ {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
-                                        {0.0, 1.0, 0.0, -1.0, 0.0, -1.0, 0.0},
-                                        {1.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0} });
+static const Eigen::Matrix<double, 3, 7> J0_S({ {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+                                                {0.0, 1.0, 0.0, -1.0, 0.0, -1.0, 0.0},
+                                                {1.0, 0.0, 1.0, 0.0, 1.0, 0.0, -1.0} });
 
-Eigen::Matrix3d tmp_R;
-Eigen::Matrix<double, 3, 7> tmp_J;
-Eigen::Matrix<double, 6, 7> tmp_J_6d;
-Eigen::Matrix<double, 3, 7> J_old;
-Eigen::Matrix<double, 3, 4> J_old_low;
-Eigen::Vector3d s;
+static Eigen::Matrix3d tmp_R;
+static Eigen::Matrix<double, 3, 7> tmp_J;
+static Eigen::Matrix<double, 6, 7> tmp_J_6d;
+static Eigen::Matrix<double, 3, 7> J_old;
+static Eigen::Matrix<double, 3, 4> J_old_low;
+static Eigen::Vector3d s;
 
-void R_axis_angle(const Eigen::Vector3d& s, double theta) {
+static void R_axis_angle(const Eigen::Vector3d& s, double theta) {
     double x = s[0];
     double y = s[1];
     double z = s[2];
@@ -70,7 +86,7 @@ void R_axis_angle(const Eigen::Vector3d& s, double theta) {
         z* x* one_minus_ct - y * st, z* y* one_minus_ct + x * st, ct + z * z * one_minus_ct;
 }
 
-void R_axis_angle(const array<double, 3>& s, double theta) {
+static void R_axis_angle(const array<double, 3>& s, double theta) {
     double x = s[0];
     double y = s[1];
     double z = s[2];
@@ -82,65 +98,65 @@ void R_axis_angle(const array<double, 3>& s, double theta) {
         z* x* one_minus_ct - y * st, z* y* one_minus_ct + x * st, ct + z * z * one_minus_ct;
 }
 
-array<double, 3> Cross(const Eigen::Vector3d& u, const Eigen::Vector3d& v) {
+static array<double, 3> Cross(const Eigen::Vector3d& u, const Eigen::Vector3d& v) {
     return array<double, 3> {u[1] * v[2] - v[1] * u[2], v[0] * u[2] - u[0] * v[2], u[0] * v[1] - v[0] * u[1]};
 }
 
-array<double, 3> Cross(const array<double, 3>& u, const array<double, 3>& v) {
+static array<double, 3> Cross(const array<double, 3>& u, const array<double, 3>& v) {
     return array<double, 3> {u[1] * v[2] - v[1] * u[2], v[0] * u[2] - u[0] * v[2], u[0] * v[1] - v[0] * u[1]};
 }
 
-array<double, 3> Cross(const array<double, 3>& u, const Eigen::Vector3d& v) {
+static array<double, 3> Cross(const array<double, 3>& u, const Eigen::Vector3d& v) {
     return array<double, 3> {u[1] * v[2] - v[1] * u[2], v[0] * u[2] - u[0] * v[2], u[0] * v[1] - v[0] * u[1]};
 }
 
-array<double, 3> Cross(const Eigen::Vector3d& u, const array<double, 3>& v) {
+static array<double, 3> Cross(const Eigen::Vector3d& u, const array<double, 3>& v) {
     return array<double, 3> {u[1] * v[2] - v[1] * u[2], v[0] * u[2] - u[0] * v[2], u[0] * v[1] - v[0] * u[1]};
 }
 
-void Cross_(const array<double, 3>& u, const Eigen::Vector3d& v, array<double, 3>& w) {
+static void Cross_(const array<double, 3>& u, const Eigen::Vector3d& v, array<double, 3>& w) {
     w[0] = u[1] * v[2] - v[1] * u[2];
     w[1] = v[0] * u[2] - u[0] * v[2];
     w[2] = u[0] * v[1] - v[0] * u[1];
 }
 
-void Cross_(const array<double, 3>& u, const array<double, 3>& v, array<double, 3>& w) {
+static void Cross_(const array<double, 3>& u, const array<double, 3>& v, array<double, 3>& w) {
     w[0] = u[1] * v[2] - v[1] * u[2];
     w[1] = v[0] * u[2] - u[0] * v[2];
     w[2] = u[0] * v[1] - v[0] * u[1];
 }
 
-double Dot(const Eigen::Vector3d& u, const Eigen::Vector3d& v) {
+static double Dot(const Eigen::Vector3d& u, const Eigen::Vector3d& v) {
     return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
 }
 
-double Dot(const array<double, 3>& u, const array<double, 3>& v) {
+static double Dot(const array<double, 3>& u, const array<double, 3>& v) {
     return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
 }
 
-double Dot(const array<double, 3>& u, const Eigen::Vector3d& v) {
+static double Dot(const array<double, 3>& u, const Eigen::Vector3d& v) {
     return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
 }
 
-double Dot(const Eigen::Vector3d& u, const array<double, 3>& v) {
+static double Dot(const Eigen::Vector3d& u, const array<double, 3>& v) {
     return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
 }
 
-double Norm(const Eigen::Vector3d& u) {
+static double Norm(const Eigen::Vector3d& u) {
     return sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
 }
 
-double Norm(const array<double, 3>& u) {
+static double Norm(const array<double, 3>& u) {
     return sqrt(u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
 }
 
-void J_dir(const array<double, 3>& s2, const array<double, 3>& s3, const array<double, 3>& s4, const array<double, 3>& s5, const array<double, 3>& s6, const array<double, 3>& s7) {
+static void J_dir(const array<double, 3>& s2, const array<double, 3>& s3, const array<double, 3>& s4, const array<double, 3>& s5, const array<double, 3>& s6, const array<double, 3>& s7) {
     tmp_J << 0, s2[0], s3[0], s4[0], s5[0], s6[0], s7[0],
         0, s2[1], s3[1], s4[1], s5[1], s6[1], s7[1],
         1, s2[2], s3[2], s4[2], s5[2], s6[2], s7[2];
 }
 
-void save_J_sol(const array<double, 3>& s2,
+static void save_J_sol(const array<double, 3>& s2,
     const array<double, 3>& s3,
     const array<double, 3>& s4,
     const array<double, 3>& s5,
@@ -209,16 +225,16 @@ void save_J_sol(const array<double, 3>& s2,
     }
 }
 
-double signed_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2, const Eigen::Vector3d& s) {
+static double signed_angle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2, const Eigen::Vector3d& s) {
     return atan2(Dot(Cross(v1, v2), s), Dot(v1, v2));
 }
 
-double signed_angle(const array<double, 3>& v1, const array<double, 3>& v2, const array<double, 3>& s) {
+static double signed_angle(const array<double, 3>& v1, const array<double, 3>& v2, const array<double, 3>& s) {
     //return atan2(s[2]*(v1[0]*v2[1] - v1[1]*v2[0]) - s[1]*(v1[0]*v2[2] - v1[2]*v2[0]) + s[0]*(v1[1]*v2[2] - v1[2]*v2[1]), v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]);
     return atan2(Dot(Cross(v1, v2), s), Dot(v1, v2));
 }
 
-void check_limits(array<double, 7>& q, int n) {
+static void check_limits(array<double, 7>& q, int n) {
     for (int i=0; i < n; i++) {
         q[i] = q_mid[i] + atan2(sin(q[i] - q_mid[i]), cos(q[i] - q_mid[i]));
         if (q[i] < q_low[i] || q[i] > q_up[i]) q[i] = NAN;
@@ -226,7 +242,7 @@ void check_limits(array<double, 7>& q, int n) {
 }
 
 // whole rotational part of J
-array<double, 6> q_from_J(const Eigen::Matrix<double, 3, 7>& J) {
+static array<double, 6> q_from_J(const Eigen::Matrix<double, 3, 7>& J) {
     const int dof = 7;
     array<double, dof - 1> q;
     J_old = J0_S; // [3,dof]
@@ -241,7 +257,7 @@ array<double, 6> q_from_J(const Eigen::Matrix<double, 3, 7>& J) {
 }
 
 // lower rotationa part of J
-array<double, 3> q_from_low_J(const Eigen::Matrix<double, 3, 7>& J) {
+static array<double, 3> q_from_low_J(const Eigen::Matrix<double, 3, 7>& J) {
     const int dof = 4;
     array<double, dof - 1> q;
     J_old_low = J0_S.block(0, 0, 3, dof); // [3,dof]
@@ -283,20 +299,20 @@ array<double, 7> J_to_q(const array<array<double, 6>, 7>& J, const array<array<d
     return q;
 }
 
-void column_1s_times_vec(const array<double, 9>& R, const array<double, 3>& v, array<double, 3>& res) {
+static void column_1s_times_vec(const array<double, 9>& R, const array<double, 3>& v, array<double, 3>& res) {
     res[0] = R[0] * v[0] + R[1] * v[1] + R[2] * v[2];
     res[1] = R[3] * v[0] + R[4] * v[1] + R[5] * v[2];
     res[2] = R[6] * v[0] + R[7] * v[1] + R[8] * v[2];
 }
 
-void rotate_by_axis_angle(const array<double, 3>& s, const double theta, const array<double, 3>& v, array<double, 3>& res) {
+static void rotate_by_axis_angle(const array<double, 3>& s, const double theta, const array<double, 3>& v, array<double, 3>& res) {
     R_axis_angle(s, theta);
     res[0] = tmp_R(0, 0) * v[0] + tmp_R(0, 1) * v[1] + tmp_R(0, 2) * v[2];
     res[1] = tmp_R(1, 0) * v[0] + tmp_R(1, 1) * v[1] + tmp_R(1, 2) * v[2];
     res[2] = tmp_R(2, 0) * v[0] + tmp_R(2, 1) * v[1] + tmp_R(2, 2) * v[2];
 }
 
-Eigen::Matrix4d T_rpy(const double r, const double p, const double y, const double px, const double py, const double pz) {
+static Eigen::Matrix4d T_rpy(const double r, const double p, const double y, const double px, const double py, const double pz) {
     Eigen::Matrix4d T;
     T << cos(p) * cos(y), cos(y)* sin(p)* sin(r) - cos(r) * sin(y), sin(r)* sin(y) + cos(r) * cos(y) * sin(p), px,
         cos(p)* sin(y), cos(r)* cos(y) + sin(p) * sin(r) * sin(y), cos(r)* sin(p)* sin(y) - cos(y) * sin(r), py,
@@ -305,7 +321,7 @@ Eigen::Matrix4d T_rpy(const double r, const double p, const double y, const doub
     return T;
 }
 
-Eigen::Matrix4d T_rot_z(const double theta, const double px = 0.0, const double py = 0.0, const double pz = 0.0) {
+static Eigen::Matrix4d T_rot_z(const double theta, const double px = 0.0, const double py = 0.0, const double pz = 0.0) {
     Eigen::Matrix4d T;
     T << cos(theta), -sin(theta), 0, px,
         sin(theta), cos(theta), 0, py,
@@ -314,7 +330,7 @@ Eigen::Matrix4d T_rot_z(const double theta, const double px = 0.0, const double 
     return T;
 }
 
-Eigen::Matrix<double, 6, 6> Adj_trans(const double x, const double y, const double z) {
+static Eigen::Matrix<double, 6, 6> Adj_trans(const double x, const double y, const double z) {
     Eigen::Matrix<double, 6, 6> Adj = Eigen::Matrix<double, 6, 6>::Identity();
     Adj.block<3, 3>(3, 0) << 0, -z, y,
         z, 0, -x,
@@ -322,7 +338,7 @@ Eigen::Matrix<double, 6, 6> Adj_trans(const double x, const double y, const doub
     return Adj;
 }
 
-void get_frame_transforms(array<Eigen::Matrix4d, 9>& Ti, const array<double, 7>& q) {
+static void get_frame_transforms(array<Eigen::Matrix4d, 9>& Ti, const array<double, 7>& q) {
     // gets all the transformation matrices of adjascent frames for joint angles q
     Ti[0] = T_rpy(0, 0, 0, 0, 0, 0.333) * T_rot_z(q[0]); // T01
     Ti[1] = T_rpy(-PI / 2, 0, 0, 0, 0, 0) * T_rot_z(q[1]); // T12
@@ -335,7 +351,7 @@ void get_frame_transforms(array<Eigen::Matrix4d, 9>& Ti, const array<double, 7>&
     Ti[8] = T_rot_z(-PI / 4, 0, 0, 0.1034); // T8E
 }
 
-unsigned int ee_number(const char ee) {
+static unsigned int ee_number(const char ee) {
     if (ee == 'E') // ask default value first
         return 9;
     if (ee == 'F' || ee == '8')
@@ -389,7 +405,7 @@ Eigen::Matrix4d franka_fk(const array<double, 7>& q, const char ee) {
     return TOee;
 }
 
-void franka_fk_all_frames(array<Eigen::Matrix4d, 9>& Ts, const array<double, 7>& q) {
+static void franka_fk_all_frames(array<Eigen::Matrix4d, 9>& Ts, const array<double, 7>& q) {
     // Forward kinematics function saving in Ts the transformation matrices of all frames w.r.t. frame O
     array<Eigen::Matrix4d, 9> Ti;
     get_frame_transforms(Ti, q);
@@ -427,7 +443,7 @@ unsigned int franka_ik_q7(const array<double, 3>& r,
             tmp = 1;
         }
         else {
-            cout << "ERROR: unable to assembly kinematic chain";
+            geofik_log() << "ERROR: unable to assembly kinematic chain";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             }
@@ -548,7 +564,7 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
         if (lp2 * lp2 < SING_TOL * SING_TOL) 
             lp2 = 0;
         else {
-            cout << "\nERROR: unable to assembly kinematic chain\n";
+            geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
             for (int i = 0; i < 8; ++i)
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             return 0;
@@ -563,7 +579,7 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
         if ((tmp - 1) * (tmp - 1) < SING_TOL * SING_TOL)
             tmp = 1.0;
         else {
-            cout << "\nERROR: unable to assembly kinematic chain\n";
+            geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             }
@@ -574,7 +590,7 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
     if ((tmp - 1) * (tmp - 1) < SING_TOL*SING_TOL)
         tmp = 1.0;
     if (tmp > 1.0) {
-        cout << "\nERROR: unable to assembly kinematic chain\n";
+        geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
         for (int i = 0; i < 8; ++i) {
             fill(qsols[i].begin(), qsols[i].end(), NAN);
         }
@@ -646,11 +662,11 @@ unsigned int franka_ik_q4(const array<double, 3>& r,
 }
 
 
-unsigned int franka_ik_q6_parallel(const array<double, 3>& r_ES_O,
-                                   const array<double, 9>& ROE,
-                                   const int sgn,
-                                   array<array<double, 7>, 8>& qsols,
-                                   const double q1_sing) {
+static unsigned int franka_ik_q6_parallel(const array<double, 3>& r_ES_O,
+                                          const array<double, 9>& ROE,
+                                          const int sgn,
+                                          array<array<double, 7>, 8>& qsols,
+                                          const double q1_sing) {
     // Parallel case of the IK with q6 as free variable. Only called by franka_ik_q6(), not by the user.
     // INPUT: r_ES_O, ROE, sgn  = sign(cos(q6)), qsols, q1_sing.
     // OUTPUT: number of solutions found.
@@ -667,7 +683,7 @@ unsigned int franka_ik_q6_parallel(const array<double, 3>& r_ES_O,
     if (tmp * tmp < SING_TOL*SING_TOL)
         tmp = 0;
     if (tmp < 0) {
-        cout << "ERROR: unable to assembly kinematic chain";
+        geofik_log() << "ERROR: unable to assembly kinematic chain";
         for (int i = 0; i < 8; ++i) {
             fill(qsols[i].begin(), qsols[i].end(), NAN);
         }
@@ -792,7 +808,7 @@ unsigned int franka_ik_q6(const array<double, 3>& r,
         if ((tmp - 1) * (tmp - 1) < SING_TOL * SING_TOL)
             tmp = 1.0;
         else {
-            cout << "ERROR: unable to assembly kinematic chain";
+            geofik_log() << "ERROR: unable to assembly kinematic chain";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             }
@@ -883,16 +899,16 @@ unsigned int franka_ik_q6(const array<double, 3>& r,
 
 // FUNCTIONS FOR SWIVEL ANGLE
 
-array<double, 2> theta_err_from_q7_explore_around_sing(double& q7m,
-                                                       const double theta,
-                                                       const Eigen::Vector3d& i_E_O,
-                                                       const array<double, 3>& k_E_O,
-                                                       Eigen::Vector3d& i_6_O,
-                                                       const array<double, 3>& n1_O,
-                                                       const array<double, 3>& r_O7S_O,
-                                                       const array<double, 3>& u_O7S_O,
-                                                       const double q7step,
-                                                       const unsigned int n_fine) {
+static array<double, 2> theta_err_from_q7_explore_around_sing(double& q7m,
+                                                               const double theta,
+                                                               const Eigen::Vector3d& i_E_O,
+                                                               const array<double, 3>& k_E_O,
+                                                               Eigen::Vector3d& i_6_O,
+                                                               const array<double, 3>& n1_O,
+                                                               const array<double, 3>& r_O7S_O,
+                                                               const array<double, 3>& u_O7S_O,
+                                                               const double q7step,
+                                                               const unsigned int n_fine) {
     array<double, 3> s6, r6, k_C_O, i_C_O, j_C_O, s4, r4, n2_O, v;
     array<double, 2> errs;
     array<array<double, 3>, 2> s5s;
@@ -970,16 +986,16 @@ array<double, 2> theta_err_from_q7_explore_around_sing(double& q7m,
     return min_errs;
 }
 
-array<double, 2> theta_err_from_q7(double& q7,
-                                   const double theta,
-                                   const Eigen::Vector3d& i_E_O,
-                                   const array<double, 3>& k_E_O,
-                                   Eigen::Vector3d& i_6_O,
-                                   const array<double, 3>& n1_O,
-                                   const array<double, 3>& r_O7S_O,
-                                   const array<double, 3>& u_O7S_O,
-                                   const double q7step,
-                                   const unsigned int n_fine) {
+static array<double, 2> theta_err_from_q7(double& q7,
+                                          const double theta,
+                                          const Eigen::Vector3d& i_E_O,
+                                          const array<double, 3>& k_E_O,
+                                          Eigen::Vector3d& i_6_O,
+                                          const array<double, 3>& n1_O,
+                                          const array<double, 3>& r_O7S_O,
+                                          const array<double, 3>& u_O7S_O,
+                                          const double q7step,
+                                          const unsigned int n_fine) {
     // Calculates the error in swivel angle given the necessary geometry, q7, and the desired swivel angle theta
     // NOTATION: u_O7S_O = r_O7S_O/norm(r_O7S_O), precalculated to improve speed
     array<double, 2> errs;
@@ -1065,15 +1081,15 @@ array<double, 2> theta_err_from_q7(double& q7,
     return errs;
 }
 
-void franka_ik_q7_one_sol(const double q7,
-                          const Eigen::Vector3d& i_E_O,
-                          const array<double, 3>& k_E_O,
-                          Eigen::Vector3d& i_6_O,
-                          const array<double, 3>& r_O7S_O,
-                          const unsigned int branch,
-                          array<array<double, 7>, 8>& qsols,
-                          unsigned int ind,
-                          const double q1_sing) {
+static void franka_ik_q7_one_sol(const double q7,
+                                 const Eigen::Vector3d& i_E_O,
+                                 const array<double, 3>& k_E_O,
+                                 Eigen::Vector3d& i_6_O,
+                                 const array<double, 3>& r_O7S_O,
+                                 const unsigned int branch,
+                                 array<array<double, 7>, 8>& qsols,
+                                 unsigned int ind,
+                                 const double q1_sing) {
     // returns the two solution related to one single branch of the IK with q7 as free variable. The results are stored in qsols[s*ind] and qsols[2*ind+1]
     R_axis_angle(k_E_O, -(q7 - PI / 4));
     i_6_O = tmp_R * i_E_O;
@@ -1166,7 +1182,7 @@ unsigned int franka_ik_swivel(const array<double, 3>& r,
     array<double, 3> r_O7S_O = { r[0] - dE * k_E_O[0], r[1] - dE * k_E_O[1], r[2] - d1 - dE * k_E_O[2] };
     double tmp = sqrt(r_O7S_O[1] * r_O7S_O[1] + r_O7S_O[0] * r_O7S_O[0]);
     if (tmp < SING_TOL) {
-        cout << "ERROR: n1_O is undefined";
+        geofik_log() << "ERROR: n1_O is undefined";
         for (int i = 0; i < 8; i++)
             fill(qsols[i].begin(), qsols[i].end(), NAN);
         return 0;
@@ -1300,7 +1316,7 @@ double franka_swivel(const array<double, 7>& q) {
     array<double, 3> s4 = { Ts[3](0,2), Ts[3](1,2), Ts[3](2,2) };
     double tmp = sqrt(r7[1] * r7[1] + r7[0] * r7[0]);
     if (tmp < SING_TOL) {
-        cout << "ERROR: n1_O is undefined";
+        geofik_log() << "ERROR: n1_O is undefined";
         return NAN;
     }
     array<double, 3> n1_O = { r7[1] / tmp, -r7[0] / tmp, 0 };
@@ -1377,7 +1393,7 @@ unsigned int franka_J_ik_q7(const array<double, 3>& r,
             tmp = 1;
         }
         else {
-            cout << "ERROR: unable to assembly kinematic chain";
+            geofik_log() << "ERROR: unable to assembly kinematic chain";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
                 for (auto& row : Jsols[i])
@@ -1510,7 +1526,7 @@ unsigned int franka_J_ik_q4(const array<double, 3>& r,
         if (lp2 * lp2 < SING_TOL * SING_TOL)
             lp2 = 0;
         else {
-            cout << "\nERROR: unable to assembly kinematic chain\n";
+            geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
             for (int i = 0; i < 8; ++i)
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             return 0;
@@ -1524,7 +1540,7 @@ unsigned int franka_J_ik_q4(const array<double, 3>& r,
         if ((tmp - 1) * (tmp - 1) < SING_TOL * SING_TOL)
             tmp = 1.0;
         else {
-            cout << "\nERROR: unable to assembly kinematic chain\n";
+            geofik_log() << "\nERROR: unable to assembly kinematic chain\n";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
             }
@@ -1602,15 +1618,15 @@ unsigned int franka_J_ik_q4(const array<double, 3>& r,
     return 2 * ind;
 }
 
-unsigned int franka_J_ik_q6_parallel(const array<double, 3>& r,
-                                     const array<double, 3>& r_ES_O,
-                                     const array<double, 9>& ROE,
-                                     const int sgn,
-                                     array<array<array<double, 6>, 7>, 8>& Jsols,
-                                     array<array<double, 7>, 8>& qsols,
-                                     const bool joint_angles,
-                                     const char Jacobian_ee,
-                                     const double q1_sing) {
+static unsigned int franka_J_ik_q6_parallel(const array<double, 3>& r,
+                                            const array<double, 3>& r_ES_O,
+                                            const array<double, 9>& ROE,
+                                            const int sgn,
+                                            array<array<array<double, 6>, 7>, 8>& Jsols,
+                                            array<array<double, 7>, 8>& qsols,
+                                            const bool joint_angles,
+                                            const char Jacobian_ee,
+                                            const double q1_sing) {
     // Parallel case of the Jacobian IK with q6 as free variable. Only called by franka_J_ik_q6(), not by the user.
     // INPUT: r, r_ES_O, ROE, sgn  = sign(cos(q6)), Jsols, qsols, joint_angles, Jacobian_ee, q1_sing.
     // OUTPUT: number of solutions found.
@@ -1627,7 +1643,7 @@ unsigned int franka_J_ik_q6_parallel(const array<double, 3>& r,
     if (tmp * tmp < SING_TOL * SING_TOL)
         tmp = 0;
     if (tmp < 0) {
-        cout << "ERROR: unable to assembly kinematic chain";
+        geofik_log() << "ERROR: unable to assembly kinematic chain";
         for (int i = 0; i < 8; ++i) {
             fill(qsols[i].begin(), qsols[i].end(), NAN);
             for (auto& row : Jsols[i])
@@ -1773,7 +1789,7 @@ unsigned int franka_J_ik_q6(const array<double, 3>& r,
         if ((tmp - 1) * (tmp - 1) < SING_TOL * SING_TOL)
             tmp = 1.0;
         else {
-            cout << "ERROR: unable to assembly kinematic chain";
+            geofik_log() << "ERROR: unable to assembly kinematic chain";
             for (int i = 0; i < 8; ++i) {
                 fill(qsols[i].begin(), qsols[i].end(), NAN);
                 for (auto& row : Jsols[i])
@@ -1868,19 +1884,19 @@ unsigned int franka_J_ik_q6(const array<double, 3>& r,
 // FUNCTIONS FOR SWIVEL ANGLE (JACOBIAN)
 
 
-void franka_J_ik_q7_one_sol(const double q7,
-                            const Eigen::Vector3d& i_E_O,
-                            const array<double, 3>& k_E_O,
-                            Eigen::Vector3d& i_6_O,
-                            const array<double, 3>& r_O7S_O,
-                            const array<double, 3>& r,
-                            array<array<array<double, 6>, 7>, 8>& Jsols,
-                            array<array<double, 7>, 8>& qsols,
-                            unsigned int ind,
-                            const bool joint_angles,
-                            const char Jacobian_ee,
-                            const unsigned int branch,
-                            const double q1_sing) {
+static void franka_J_ik_q7_one_sol(const double q7,
+                                   const Eigen::Vector3d& i_E_O,
+                                   const array<double, 3>& k_E_O,
+                                   Eigen::Vector3d& i_6_O,
+                                   const array<double, 3>& r_O7S_O,
+                                   const array<double, 3>& r,
+                                   array<array<array<double, 6>, 7>, 8>& Jsols,
+                                   array<array<double, 7>, 8>& qsols,
+                                   unsigned int ind,
+                                   const bool joint_angles,
+                                   const char Jacobian_ee,
+                                   const unsigned int branch,
+                                   const double q1_sing) {
     // returns the two solution related to one single branch of the IK with q7 as free variable. The results are stored in Jsols[2*ind] and Jsols[2*ind+1]
     R_axis_angle(k_E_O, -(q7 - PI / 4));
     i_6_O = tmp_R * i_E_O;
@@ -1980,7 +1996,7 @@ unsigned int franka_J_ik_swivel(const array<double, 3>& r,
     array<double, 3> r_O7S_O = { r[0] - dE * k_E_O[0], r[1] - dE * k_E_O[1], r[2] - d1 - dE * k_E_O[2] };
     double tmp = sqrt(r_O7S_O[1] * r_O7S_O[1] + r_O7S_O[0] * r_O7S_O[0]);
     if (tmp < SING_TOL) {
-        cout << "ERROR: n1_O is undefined";
+        geofik_log() << "ERROR: n1_O is undefined";
         for (int i = 0; i < 8; ++i) {
             fill(qsols[i].begin(), qsols[i].end(), NAN);
             for (auto& row : Jsols[i])
